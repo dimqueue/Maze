@@ -1,6 +1,7 @@
 package main
 
 import (
+	"container/list"
 	"fmt"
 	"math/rand"
 )
@@ -32,6 +33,7 @@ type Maze struct {
 	Entrance Cell
 	Exit     Cell
 	Traps    int
+	Treasure bool
 }
 
 type Cell struct {
@@ -45,19 +47,17 @@ func (b *BackTracker) IsEmpty() bool {
 	return len(*b) == 0
 }
 
-// Push a new value onto the stack
 func (b *BackTracker) Push(cell Cell) {
 	*b = append(*b, cell) // Simply append the new value to the end of the stack
 }
 
-// Remove and return top element of stack. Return false if stack is empty.
 func (b *BackTracker) Pop() (Cell, bool) {
 	if b.IsEmpty() {
 		return Cell{-1, -1}, false
 	} else {
-		index := len(*b) - 1   // Get the index of the top most element.
-		element := (*b)[index] // Index into the slice and obtain the element.
-		*b = (*b)[:index]      // Remove it from the stack by slicing it off.
+		index := len(*b) - 1
+		element := (*b)[index]
+		*b = (*b)[:index]
 		return element, true
 	}
 }
@@ -82,12 +82,12 @@ func NewMaze(height int, width int) *Maze {
 		Entrance: Cell{1, 1},
 		Exit:     Cell{height - 2, width - 2},
 		Traps:    5,
+		Treasure: true,
 	}
 }
 
 func (m *Maze) GenerateMaze() {
-
-	for i := 0; i < m.Height; i++ { // preparation to generate
+	for i := 0; i < m.Height; i++ {
 		for j := 0; j < m.Width; j++ {
 			if i%2 != 0 && j%2 != 0 {
 				m.Grid[i][j] = Road
@@ -105,8 +105,6 @@ func (m *Maze) GenerateMaze() {
 	backTracker.Push(currentCell)
 	m.Grid[currentCell.X][currentCell.Y] = Visited
 
-	//firstIteration := true
-	var path []Cell
 	for len(backTracker) > 0 {
 		neighbors := m.getNeighbors(currentCell)
 		lenN := len(neighbors)
@@ -118,18 +116,10 @@ func (m *Maze) GenerateMaze() {
 			currentCell = nextCell
 		} else {
 			currentCell, _ = backTracker.Pop()
-			//if m.isReached(currentCell) && firstIteration {
-			//	path = append(path, backTracker...)
-			//	fmt.Println(path)
-			//	firstIteration = false
-			//}
-			//uncomment if you need more walls
 			m.Grid[currentCell.X][currentCell.Y] = Visited
 		}
 	}
-	//m.generatePath(path)
-	m.generateEnvironment(path)
-
+	m.generateEnvironment()
 }
 
 func (m *Maze) getNeighbors(cell Cell) (neighbors []Cell) {
@@ -162,7 +152,6 @@ func (m *Maze) removeWall(first Cell, second Cell) {
 	}
 	dx /= 2
 	dy /= 2
-	fmt.Println("r1", dx, dy, first.X, first.Y)
 	m.Grid[first.X+dx][first.Y+dy] = Visited
 }
 
@@ -170,36 +159,57 @@ func (m *Maze) isReached(cell Cell) bool {
 	return cell.X == m.Exit.X && cell.Y == m.Exit.Y
 }
 
-//func (m *Maze) generatePath(path []Cell) {
-//	for _, i := range path {
-//		m.Grid[i.X][i.Y] = Road
-//	}
-//	for i := 0; i < len(path)-1; i += 1 {
-//		first, second := path[i], path[i+1]
-//		dx := second.X - first.X
-//		dy := second.Y - first.Y
-//		if dx > 0 && dy == 0 {
-//			dx++
-//		} else if dy == 0 {
-//			dx--
-//		}
-//		if dy > 0 && dx == 0 {
-//			dy++
-//		} else if dx == 0 {
-//			dy--
-//		}
-//		dx /= 2
-//		dy /= 2
-//		fmt.Println(dx, dy, "   ", first.X, first.Y, "   ", second.X, second.Y, "    ", first.X+dx, first.Y+dy)
-//		m.Grid[first.X+dx][first.Y+dy] = Road
-//	}
-//}
-
-func (m *Maze) generateEnvironment(path []Cell) {
+func (m *Maze) generateEnvironment() {
+	m.bfsShortestPath()
 	m.generateEntranceExit()
-	//m.generateTraps()
+	m.generateTraps()
+	m.generateTreasure()
 }
 
+func (m *Maze) bfsShortestPath() []Cell {
+	visited := make([][]bool, m.Height)
+	for i := range visited {
+		visited[i] = make([]bool, m.Width)
+	}
+
+	queue := list.New()
+	queue.PushBack(m.Entrance)
+	visited[m.Entrance.X][m.Entrance.Y] = true
+
+	parent := make(map[Cell]Cell)
+
+	movements := [][]int{{-1, 0}, {1, 0}, {0, -1}, {0, 1}}
+
+	for queue.Len() > 0 {
+		curr := queue.Remove(queue.Front()).(Cell)
+
+		if curr.X == m.Exit.X && curr.Y == m.Exit.Y {
+			path := []Cell{curr}
+			for curr != m.Entrance {
+				curr = parent[curr]
+				path = append([]Cell{curr}, path...)
+			}
+			for _, i := range path {
+				m.Grid[i.X][i.Y] = Road
+			}
+			return path
+		}
+
+		for _, move := range movements {
+			newX := curr.X + move[0]
+			newY := curr.Y + move[1]
+
+			if newX > 0 && newX < m.Height && newY > 0 && newY < m.Width && !visited[newX][newY] && m.Grid[newX][newY] == Visited {
+				nextCell := Cell{newX, newY}
+				queue.PushBack(nextCell)
+				visited[newX][newY] = true
+				parent[nextCell] = curr
+			}
+		}
+	}
+
+	return nil
+}
 func (m *Maze) generateEntranceExit() {
 	m.Grid[m.Entrance.X][m.Entrance.Y] = Entrance
 	m.Grid[m.Exit.X][m.Exit.Y] = Exit
@@ -224,12 +234,20 @@ func (m *Maze) generateTraps() {
 }
 
 func (m *Maze) generateTreasure() {
-
+	treasure := m.Treasure
+	for treasure {
+		randomX := 1 + rand.Intn(m.Height-2)
+		randomY := 1 + rand.Intn(m.Width-2)
+		if m.Grid[randomX][randomY] == Road || m.Grid[randomX][randomY] == Visited {
+			m.Grid[randomX][randomY] = Treasure
+			break
+		}
+	}
 }
 
 func (m *Maze) Print() {
-	for _, row := range m.Grid {
-		fmt.Println(row)
+	for _, cell := range m.Grid {
+		fmt.Println(cell)
 	}
 	for _, row := range m.Grid {
 		for _, cell := range row {
