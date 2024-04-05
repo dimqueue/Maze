@@ -48,7 +48,7 @@ func (b *BackTracker) IsEmpty() bool {
 }
 
 func (b *BackTracker) Push(cell Cell) {
-	*b = append(*b, cell) // Simply append the new value to the end of the stack
+	*b = append(*b, cell)
 }
 
 func (b *BackTracker) Pop() (Cell, bool) {
@@ -166,7 +166,7 @@ func (m *Maze) generateEnvironment() {
 	m.generateTreasure()
 }
 
-func (m *Maze) bfsShortestPath() []Cell {
+func (m *Maze) bfsShortestPath() {
 	visited := make([][]bool, m.Height)
 	for i := range visited {
 		visited[i] = make([]bool, m.Width)
@@ -192,7 +192,7 @@ func (m *Maze) bfsShortestPath() []Cell {
 			for _, i := range path {
 				m.Grid[i.X][i.Y] = Road
 			}
-			return path
+			break
 		}
 
 		for _, move := range movements {
@@ -207,8 +207,6 @@ func (m *Maze) bfsShortestPath() []Cell {
 			}
 		}
 	}
-
-	return nil
 }
 func (m *Maze) generateEntranceExit() {
 	m.Grid[m.Entrance.X][m.Entrance.Y] = Entrance
@@ -246,9 +244,9 @@ func (m *Maze) generateTreasure() {
 }
 
 func (m *Maze) Print() {
-	for _, cell := range m.Grid {
-		fmt.Println(cell)
-	}
+	//for _, cell := range m.Grid {
+	//	fmt.Println(cell)
+	//}
 	for _, row := range m.Grid {
 		for _, cell := range row {
 			fmt.Printf("%3s", cellChars[cell])
@@ -258,7 +256,14 @@ func (m *Maze) Print() {
 }
 
 func main() {
-	maze := NewMaze(15, 15)
+	var height, width int
+	fmt.Print("Enter height and width of maze:\n")
+	_, err := fmt.Scanf("%d %d", &height, &width)
+	if err != nil {
+		fmt.Println("Error reading input:", err)
+		return
+	}
+	maze := NewMaze(height, width)
 	maze.GenerateMaze()
 	maze.Print()
 }
