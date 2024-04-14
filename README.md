@@ -9,8 +9,7 @@ How to run
 Run main 
 `go run main.go`
 
-Run test
-`go test`
-
+Input height and width. For example: 
+20 20
 
 Approximate time for completing the task is 15 hours.
